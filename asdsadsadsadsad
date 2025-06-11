@@ -1,0 +1,305 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local player = Players.LocalPlayer
+
+-- Config
+local trackingEnabled = false
+local currentIndex = 1
+local moveForce = nil
+local car = nil
+local maxSpeedMph = 0
+local steeringRate = 3
+local stopDistance = 10
+local studsPerMile = 2832 -- 1 mile ≈ 2832 studs in Roblox scale
+
+
+-- Folder to organize waypoints locally
+local waypointFolder = Instance.new("Folder")
+waypointFolder.Name = "ClientWaypoints"
+waypointFolder.Parent = workspace
+
+-- Function to spawn a waypoint at a given position
+local function spawnWaypoint(position, name)
+	local part = Instance.new("Part")
+	part.Size = Vector3.new(1, 1, 1)
+	part.Shape = Enum.PartType.Ball
+	part.Anchored = true
+	part.CanCollide = false
+	part.Color = Color3.fromRGB(0, 255, 0)
+	part.Material = Enum.Material.Neon
+	part.Position = position
+	part.Name = name or "Waypoint"
+	part.Parent = waypointFolder
+end
+
+-- Example usage (you can edit the position manually)
+spawnWaypoint(Vector3.new(-1083.974241640625, 631.0885620117188, 4935.21923828125), "Waypoint #1")
+spawnWaypoint(Vector3.new(-1214.90185546875, 631.0913696289062, 4945.9750976525), "Waypoint #2")
+spawnWaypoint(Vector3.new(-1481.0472312109375, 631.0416269765,4986.6025390625), "Waypoint #3")
+spawnWaypoint(Vector3.new(-1789.5321, 631.09436, 5038.20264), "Waypoint #4")
+spawnWaypoint(Vector3.new(-2116.4231, 631.029114, 5088.04541), "Waypoint #5")
+spawnWaypoint(Vector3.new(-2438.46777, 631.093628, 5069.7417), "Waypoint #6")
+spawnWaypoint(Vector3.new(-2788.01758, 631.023743, 4887.77979), "Waypoint #7")
+spawnWaypoint(Vector3.new(-2985.58252, 631.026855, 4590.08154), "Waypoint #8")
+spawnWaypoint(Vector3.new(-3026.13477, 631.022461, 4201.48926), "Waypoint #9")
+spawnWaypoint(Vector3.new(-2990.64404, 631.098083, 3819.68433), "Waypoint #10")
+spawnWaypoint(Vector3.new(-2934.41992, 631.097778, 3438.50122), "Waypoint #11")
+spawnWaypoint(Vector3.new(-2890.76416, 631.096191, 3011.15723), "Waypoint #12")
+spawnWaypoint(Vector3.new(-2906.63843, 631.16272, 2597.52222), "Waypoint #13")
+spawnWaypoint(Vector3.new(-3056.49243, 631.166382, 2251.77686), "Waypoint #14")
+spawnWaypoint(Vector3.new(-3363.88892, 648.742249, 1945.17224), "Waypoint #15")
+spawnWaypoint(Vector3.new(-3598.81982, 653.002808, 1700.66345), "Waypoint #16")
+spawnWaypoint(Vector3.new(-3758.82202, 653.060181, 1330.24658), "Waypoint #17")
+spawnWaypoint(Vector3.new(-3803.66455, 653.059814, 932.354309), "Waypoint #18")
+spawnWaypoint(Vector3.new(-3889.27734, 653.127625, 542.61145), "Waypoint #19")
+spawnWaypoint(Vector3.new(-3988.62183, 653.036438, 149.837723), "Waypoint #20")
+spawnWaypoint(Vector3.new(-3574.31226, 652.983643, -410.44223), "Waypoint #21")
+spawnWaypoint(Vector3.new(-3189.67188, 653.057251, -567.943909), "Waypoint #22")
+spawnWaypoint(Vector3.new(-2838.72192, 653.054138, -652.54657), "Waypoint #23")
+spawnWaypoint(Vector3.new(-2379.65601, 653.055603, -678.478455), "Waypoint #24")
+spawnWaypoint(Vector3.new(-1937.03064, 653.001038, -666.913452), "Waypoint #25")
+spawnWaypoint(Vector3.new(-1643.32483, 653.044556, -434.680115), "Waypoint #26")
+spawnWaypoint(Vector3.new(-1328.52673, 653.126099, -169.086395), "Waypoint #27")
+spawnWaypoint(Vector3.new(-927.717529, 653.048889, -154.940842), "Waypoint #28")
+spawnWaypoint(Vector3.new(-532.260803, 653.048767, -245.425797), "Waypoint #29")
+spawnWaypoint(Vector3.new(-117.227211, 645.764587, -228.021667), "Waypoint #30")
+spawnWaypoint(Vector3.new(265.746704, 632.347595, -197.21492), "Waypoint #31")
+spawnWaypoint(Vector3.new(684.716858, 617.707642, -176.58432), "Waypoint #32")
+spawnWaypoint(Vector3.new(1069.77332, 604.431091, -218.053406), "Waypoint #33")
+spawnWaypoint(Vector3.new(1549.27197, 600.311707, -183.797012), "Waypoint #34")
+spawnWaypoint(Vector3.new(1771.1311, 599.982605, 86.6750793), "Waypoint #35")
+spawnWaypoint(Vector3.new(1888.20007, 600.077087, 453.263275), "Waypoint #36")
+spawnWaypoint(Vector3.new(1938.41418, 600.065308, 848.88501), "Waypoint #37")
+spawnWaypoint(Vector3.new(2069.02002, 600.079285, 1269.48645), "Waypoint #38")
+spawnWaypoint(Vector3.new(2167.92432, 600.055664, 1653.21777), "Waypoint #39")
+spawnWaypoint(Vector3.new(2209.74854, 600.078796, 2030.70544), "Waypoint #40")
+spawnWaypoint(Vector3.new(2201.66016, 600.076477, 2457.78589), "Waypoint #41")
+spawnWaypoint(Vector3.new(2158.82031, 600.081604, 2855.6147), "Waypoint #42")
+spawnWaypoint(Vector3.new(2114.08569, 602.601624, 3202.16577), "Waypoint #43")
+spawnWaypoint(Vector3.new(2102.15356, 605.510193, 3631.52686), "Waypoint #44")
+spawnWaypoint(Vector3.new(2049.81006, 599.987915, 4063.4458), "Waypoint #45")
+spawnWaypoint(Vector3.new(1870.67456, 599.987854, 4374.63184), "Waypoint #46")
+spawnWaypoint(Vector3.new(1561.47485, 600.081421, 4608.30176), "Waypoint #47")
+spawnWaypoint(Vector3.new(1130.12927, 600.085876, 4723.59326), "Waypoint #48")
+spawnWaypoint(Vector3.new(769.066101, 600.085938, 4783.28174), "Waypoint #49")
+spawnWaypoint(Vector3.new(422.766663, 604.883667, 4819.32227), "Waypoint #50")
+spawnWaypoint(Vector3.new(58.2896652, 630.964417, 4858.56299), "Waypoint #51")
+spawnWaypoint(Vector3.new(-326.482422, 631.088989, 4887.58203), "Waypoint #52")
+spawnWaypoint(Vector3.new(-620.444336, 631.039001, 4913.16455), "Waypoint #53")
+spawnWaypoint(Vector3.new(-1009.65228, 631.088135, 4916.45996), "Waypoint #54")
+
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+local waypointFolder = workspace:WaitForChild("ClientWaypoints")
+
+local function teleportToWaypoint1()
+    local wp1 = waypointFolder:FindFirstChild("Waypoint #1")
+    if wp1 and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+        local rootPart = player.Character.HumanoidRootPart
+        rootPart.CFrame = CFrame.new(wp1.Position + Vector3.new(0, 3, 0)) -- offset up by 3 studs
+    else
+        warn("Waypoint #1 or HumanoidRootPart not found!")
+    end
+end
+
+-- Call this function to teleport
+teleportToWaypoint1()
+
+
+-- GUI Setup
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "AutoDriveGUI"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = player:WaitForChild("PlayerGui")
+
+-- UI Holder Frame
+local uiFrame = Instance.new("Frame")
+uiFrame.Size = UDim2.new(0, 200, 0, 150)
+uiFrame.Position = UDim2.new(0.05, 0, 0.7, 0)
+uiFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+uiFrame.BorderSizePixel = 0
+uiFrame.BackgroundTransparency = 0.1
+uiFrame.Parent = screenGui
+
+-- UI corner rounding
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 12)
+corner.Parent = uiFrame
+
+-- Toggle button
+local toggleBtn = Instance.new("TextButton")
+toggleBtn.Size = UDim2.new(1, -20, 0, 40)
+toggleBtn.Position = UDim2.new(0, 10, 0, 10)
+toggleBtn.Text = "Auto Drive: OFF"
+toggleBtn.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
+toggleBtn.TextColor3 = Color3.new(1, 1, 1)
+toggleBtn.Font = Enum.Font.GothamBold
+toggleBtn.TextSize = 18
+toggleBtn.AutoButtonColor = false
+toggleBtn.Parent = uiFrame
+
+-- Round toggle button
+local btnCorner = Instance.new("UICorner")
+btnCorner.CornerRadius = UDim.new(0, 8)
+btnCorner.Parent = toggleBtn
+
+-- Speed label
+local speedLabel = Instance.new("TextLabel")
+speedLabel.Size = UDim2.new(1, -20, 0, 24)
+speedLabel.Position = UDim2.new(0, 10, 0, 60)
+speedLabel.BackgroundTransparency = 1
+speedLabel.TextColor3 = Color3.new(1, 1, 1)
+speedLabel.Text = "Speed: 0 mph"
+speedLabel.Font = Enum.Font.Gotham
+speedLabel.TextSize = 16
+speedLabel.TextXAlignment = Enum.TextXAlignment.Left
+speedLabel.Parent = uiFrame
+
+-- Speed input label
+local speedLabel = Instance.new("TextLabel")
+speedLabel.Size = UDim2.new(1, -20, 0, 24)
+speedLabel.Position = UDim2.new(0, 10, 0, 60)
+speedLabel.BackgroundTransparency = 1
+speedLabel.TextColor3 = Color3.new(1, 1, 1)
+speedLabel.Text = "Speed: 0 mph"
+speedLabel.Font = Enum.Font.Gotham
+speedLabel.TextSize = 16
+speedLabel.TextXAlignment = Enum.TextXAlignment.Left
+speedLabel.Parent = uiFrame
+
+-- TextBox input for speed
+local speedInput = Instance.new("TextBox")
+speedInput.Size = UDim2.new(1, -20, 0, 30)
+speedInput.Position = UDim2.new(0, 10, 0, 90)
+speedInput.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+speedInput.TextColor3 = Color3.new(1, 1, 1)
+speedInput.Font = Enum.Font.Gotham
+speedInput.PlaceholderText = "Enter speed (mph)"
+speedInput.TextSize = 16
+speedInput.ClearTextOnFocus = false
+speedInput.Text = ""
+speedInput.Parent = uiFrame
+
+local inputCorner = Instance.new("UICorner")
+inputCorner.CornerRadius = UDim.new(0, 6)
+inputCorner.Parent = speedInput
+
+speedInput.FocusLost:Connect(function(enterPressed)
+	if enterPressed then
+		local input = tonumber(speedInput.Text)
+		if input and input >= 0 then
+			maxSpeedMph = math.floor(input)
+			speedLabel.Text = "Speed: " .. maxSpeedMph .. " mph"
+		else
+			speedLabel.Text = "Speed: 0 mph"
+			maxSpeedMph = 0
+			speedInput.Text = ""
+		end
+	end
+end)
+
+-- Get waypoints from ClientWaypoints folder
+local function getWaypoints()
+	local folder = workspace:FindFirstChild("ClientWaypoints")
+	if not folder then
+		warn("ClientWaypoints folder not found in workspace")
+		return {}
+	end
+
+	local points = {}
+	for _, obj in ipairs(folder:GetChildren()) do
+		if obj:IsA("BasePart") and obj.Name:match("^Waypoint #%d+$") then
+			table.insert(points, obj)
+		end
+	end
+
+	table.sort(points, function(a, b)
+		return tonumber(a.Name:match("%d+")) < tonumber(b.Name:match("%d+"))
+	end)
+
+	return points
+end
+
+-- Find the car from seat
+local function getCar()
+	local chr = player.Character or player.CharacterAdded:Wait()
+	local humanoid = chr:WaitForChild("Humanoid")
+	local seat = humanoid.SeatPart
+	if seat and seat:IsA("VehicleSeat") then
+		local model = seat:FindFirstAncestorOfClass("Model")
+		if model then
+			if not model.PrimaryPart then
+				local main = model:FindFirstChild("Body") or model:FindFirstChild("Chassis") or model:FindFirstChild("VehicleSeat") or model:FindFirstChildWhichIsA("BasePart")
+				if main then
+					model.PrimaryPart = main
+				else
+					warn("No suitable PrimaryPart found in car.")
+					return nil
+				end
+			end
+			return model
+		end
+	end
+	return nil
+end
+
+-- Start or stop driving
+local function toggleAutoDrive()
+	trackingEnabled = not trackingEnabled
+	toggleBtn.Text = "Auto Drive: " .. (trackingEnabled and "ON" or "OFF")
+	currentIndex = 1
+
+	if trackingEnabled then
+		car = getCar()
+		if not car or not car.PrimaryPart then
+			warn("Car or PrimaryPart missing")
+			trackingEnabled = false
+			toggleBtn.Text = "Auto Drive: OFF"
+			return
+		end
+
+		moveForce = Instance.new("BodyVelocity")
+		moveForce.Name = "AutoDriveForce"
+		moveForce.MaxForce = Vector3.new(1e5, 0, 1e5)
+		moveForce.Velocity = Vector3.zero
+		moveForce.Parent = car.PrimaryPart
+	else
+		if moveForce then moveForce:Destroy() end
+	end
+end
+
+toggleBtn.MouseButton1Click:Connect(toggleAutoDrive)
+
+-- Car driving logic
+RunService.Heartbeat:Connect(function(dt)
+	if not trackingEnabled or not car or not car.PrimaryPart then return end
+
+	local waypoints = getWaypoints()
+	if #waypoints == 0 then return end
+
+	if currentIndex > #waypoints then
+		currentIndex = 1
+	end
+
+	local target = waypoints[currentIndex]
+	local carPos = car.PrimaryPart.Position
+	local targetPos = Vector3.new(target.Position.X, carPos.Y, target.Position.Z)
+	local direction = (targetPos - carPos).Unit
+	local distance = (targetPos - carPos).Magnitude
+
+	-- Rotate car to face target
+	local currentCFrame = car.PrimaryPart.CFrame
+	local newCFrame = currentCFrame:Lerp(CFrame.new(carPos, targetPos), dt * steeringRate)
+	car:SetPrimaryPartCFrame(newCFrame)
+
+	-- Convert mph to studs/sec
+	if moveForce then
+		local speedStudsPerSecond = (maxSpeedMph / 60 / 60) * studsPerMile * 10
+		moveForce.Velocity = direction * speedStudsPerSecond
+	end
+
+	if distance <= stopDistance then
+		currentIndex += 1
+	end
+end)
